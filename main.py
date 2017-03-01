@@ -54,9 +54,17 @@ def list_captions(youtube, video_id):
     captions = youtube.captions().list(part="id,snippet", videoId=video_id).execute()
     return captions['items']
 
-def download_captions(youtube, caption_id):
+def download_captions(youtube, caption_id, fmt="srt"):
+    """
+    Downloads a caption. Possible values for fmt:
+    sbv - SubViewer subtitle.
+    scc - Scenarist Closed Caption format.
+    srt - SubRip subtitle.
+    ttml - Timed Text Markup Language caption.
+    vtt - Web Video Text Tracks caption.
+    """
     try:
-        return youtube.captions().download(id=caption_id).execute()
+        return youtube.captions().download(id=caption_id, tfmt=fmt).execute()
     except HttpError as e:
         print("An HTTP error %d occurred:\n%s" % (e.resp.status, e.content))
 
@@ -68,9 +76,19 @@ if __name__ == "__main__":
     youtube = get_authenticated_service(args)
     try:
         captions = list_captions(youtube, args.videoid)
+
+        if not captions:
+            print("This video has no captions")
+
         for caption in captions:
-            #pprint(caption)
-            print("Downloading %s caption with id %s" % (caption['snippet']['trackKind'], caption['id']))
-            print(download_captions(youtube, caption['id']))
+            captions = download_captions(youtube, caption['id'])
+            if not captions:
+                continue
+            filename = "%s_%s.srt" % (args.videoid, caption['id'])
+            with open(filename, 'w') as f:
+                f.write(captions.decode('utf-8'))
+            print("Downloaded %s caption with id %s to %s" %
+                  (caption['snippet']['trackKind'], caption['id'], filename))
+
     except HttpError as e:
         print("An HTTP error %d occurred:\n%s" % (e.resp.status, e.content))
